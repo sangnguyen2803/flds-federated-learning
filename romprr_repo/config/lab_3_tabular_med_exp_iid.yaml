@@ -3,10 +3,10 @@ data:
   dataset:
     # This dataset has no patient_id (only age, gender, education level & income)
     # Need to be changed to compare HFL & VFL
-    name: dataset.Med_data.CDC_DIABETES_INDICATORS
+    name: dataset.Med_data.CARDIO_DATASET
     path: ./data
   distribution:
-    name: iid ## necessary for heterogeneity among clients
+    name: iid
   keep_test : true
   sampling_perc: 1.0
   server_split: 0.0

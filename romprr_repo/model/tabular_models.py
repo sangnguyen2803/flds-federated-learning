@@ -13,15 +13,15 @@ class StandardMLP(nn.Module):
         return self.model(x)
 
 # 2. TabNet (The Neural Decision Tree / XGBoost Alternative)
-from pytorch_tabnet.tab_network import TabNet
-class GoogleTabNet(nn.Module):
-    def __init__(self, input_dim=30, num_classes=2):
-        super().__init__()
-        self.model = TabNet(input_dim=input_dim, output_dim=num_classes)
+# from pytorch_tabnet.tab_network import TabNet
+# class GoogleTabNet(nn.Module):
+#     def __init__(self, input_dim=30, num_classes=2):
+#         super().__init__()
+#         self.model = TabNet(input_dim=input_dim, output_dim=num_classes)
 
-    def forward(self, x):
-        out, _ = self.model(x)
-        return out
+#     def forward(self, x):
+#         out, _ = self.model(x)
+#         return out
 
 # # 3. FT-Transformer (The Attention/Transformer approach)
 # import rtdl
