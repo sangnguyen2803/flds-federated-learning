@@ -22,7 +22,7 @@ eval:
   eval_every: 1
   locals: false        # client-side eval doesn't make sense in VFL (clients have no labels)
   post_fit: true
-  pre_fit: false
+  pre_fit: true
   server: true         # server evaluates end-to-end (bottom models + top model)
   task: classification
 exp:

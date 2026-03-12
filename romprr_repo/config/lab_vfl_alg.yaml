@@ -6,22 +6,22 @@
 
 hyperparameters:
   client:
-    batch_size: 64
-    local_epochs: 1       # in split learning, 1 epoch per round is typical
+    batch_size: 32
+    local_epochs: 10       # in split learning, 1 epoch per round is typical
     loss: CrossEntropyLoss
     optimizer:
       name: Adam
-      lr: 1.0e-03
+      lr: 1.0e-05
     persistency: true
     scheduler:
-      gamma: 0.99
+      gamma: 1
       step_size: 1
   server:
     optimizer:
       name: Adam
-      lr: 1.0e-03
+      lr: 1.0e-05
     scheduler:
-      gamma: 0.99
+      gamma: 1
       step_size: 1
 
   # Bottom model: one per client, maps local features → embedding
