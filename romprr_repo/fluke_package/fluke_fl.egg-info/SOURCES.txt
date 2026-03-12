@@ -47,9 +47,11 @@ fluke/algorithms/per_fedavg.py
 fluke/algorithms/pfedme.py
 fluke/algorithms/scaffold.py
 fluke/algorithms/superfed.py
+fluke/algorithms/vertical.py
 fluke/data/__init__.py
 fluke/data/datasets.py
 fluke/data/support.py
+fluke/data/vertical.py
 fluke/distr/__init__.py
 fluke/distr/client.py
 fluke/distr/server.py

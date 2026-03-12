@@ -207,6 +207,36 @@ def decentralized(
 
 
 @app.command()
+def vertical(
+    exp_cfg: str = typer.Argument(..., help="Configuration file"),
+    alg_cfg: str = typer.Argument(..., help="Config file for the VFL algorithm to run"),
+    overrides: Optional[List[str]] = typer.Argument(
+        None, help='Overrides for the configuration, e.g. "exp.seed=10"'
+    ),
+) -> None:
+    """Run a vertical federated learning experiment."""
+
+    try:
+
+        if overrides is not None:
+            overrides_exp = [v for v in overrides if not v.startswith("method.")]
+            overrides_alg = [v for v in overrides if v.startswith("method.")]
+            exp_cfg = _compose_config(exp_cfg, overrides_exp)
+            alg_cfg = _compose_config(alg_cfg, overrides_alg)
+            OmegaConf.set_struct(exp_cfg, False)
+            alg_cfg = OmegaConf.create({"method": alg_cfg})
+            cfg = Configuration.from_dict(OmegaConf.merge(exp_cfg, alg_cfg))
+        else:
+            cfg = Configuration(exp_cfg, alg_cfg)
+    except ConfigurationError:
+        exit(1)
+    except Exception as e:
+        raise e
+
+    _run_vertical(cfg)
+
+
+@app.command()
 def sweep(
     exp_cfg: str = typer.Argument(..., help="Configuration file"),
     alg_cfgs: List[str] = typer.Argument(..., help="Config file(s) for the algorithm(s) to run"),
@@ -328,6 +358,68 @@ def _run_decentralized(cfg: Configuration) -> None:
     fl_algo.set_callbacks([log])
     FlukeENV().set_logger(log)
     console.print(Panel(Pretty(fl_algo), title="FL algorithm", width=100))
+
+    start_time = time.perf_counter()
+    try:
+        fl_algo.run(cfg.protocol.n_rounds, cfg.protocol.eligible_perc)
+    except Exception as e:
+        log.log(f"Error: {e}")
+        FlukeENV().force_close()
+        FlukeENV.clear()
+        log.close()
+        FlukeENV().close_cache()
+        raise e
+
+    log.add_scalar("run_time_seconds", time.perf_counter() - start_time, 0)
+    log.close()
+
+
+def _run_vertical(cfg: Configuration) -> None:
+    import yaml
+    from rich.panel import Panel
+    from rich.pretty import Pretty
+
+    from . import FlukeENV  # NOQA
+    from .data.datasets import Datasets  # NOQA
+    from .data.vertical import VerticalDataSplitter  # NOQA
+    from .evaluation import ClassificationEval  # NOQA
+    from .utils.log import get_logger  # NOQA
+
+    FlukeENV().configure(cfg)
+    data_container = Datasets.get(**cfg.data.dataset)
+    evaluator = ClassificationEval(
+        eval_every=cfg.eval.eval_every, n_classes=data_container.num_classes
+    )
+    FlukeENV().set_evaluator(evaluator)
+
+    # Optional manual feature split from config (e.g. feature_splits: [[0,1,2],[3,4],[5,6,7]])
+    manual_splits = cfg.data.get("feature_splits", None) if hasattr(cfg.data, "get") else None
+    if manual_splits is None and "feature_splits" in cfg.data:
+        manual_splits = list(cfg.data.feature_splits)
+
+    data_splitter = VerticalDataSplitter(
+        dataset=data_container,
+        server_test=cfg.data.server_test,
+        sampling_perc=cfg.data.sampling_perc,
+        feature_splits=manual_splits,
+    )
+
+    fl_algo_class = get_class_from_qualified_name(cfg.method.name)
+    fl_algo = fl_algo_class(cfg.protocol.n_clients, data_splitter, cfg.method.hyperparameters)
+
+    if cfg.save and cfg.save.path:
+        path = f"{cfg.save.path}_{fl_algo.id}"
+        if not os.path.exists(path):
+            os.makedirs(path)
+        yaml.dump(cfg.to_dict(), open(f"{path}/config.yaml", "w"))
+
+    log_name = f"{fl_algo.__class__.__name__} [{fl_algo.id}]"
+    log = get_logger(cfg.logger.name, name=log_name, **cfg.logger.exclude("name"))
+    log.init(**cfg, exp_id=fl_algo.id)
+
+    fl_algo.set_callbacks([log])
+    FlukeENV().set_logger(log)
+    console.print(Panel(Pretty(fl_algo), title="VFL algorithm", width=100))
 
     start_time = time.perf_counter()
     try:

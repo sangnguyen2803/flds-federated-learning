@@ -25,6 +25,7 @@ warnings.formatwarning = custom_formatwarning
 __all__ = [
     "datasets",
     "support",
+    "vertical",
     "DataContainer",
     "DummyDataContainer",
     "FastDataLoader",
