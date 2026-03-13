@@ -6,7 +6,7 @@
 
 hyperparameters:
   client:
-    batch_size: 32
+    batch_size: 256
     local_epochs: 10       # in split learning, 1 epoch per round is typical
     loss: CrossEntropyLoss
     optimizer:
@@ -18,7 +18,7 @@ hyperparameters:
       step_size: 1
   server:
     optimizer:
-      name: Adam
+      name: AdamW
       lr: 1.0e-05
     scheduler:
       gamma: 1

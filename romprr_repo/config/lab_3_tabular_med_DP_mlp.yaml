@@ -3,7 +3,7 @@ hyperparameters:
         batch_size: 32
         local_epochs: 10
         loss: CrossEntropyLoss
-        target_epsilon: 0.5
+        target_epsilon: 3
         target_delta: 1.0e-5
         optimizer:
             name: AdamW

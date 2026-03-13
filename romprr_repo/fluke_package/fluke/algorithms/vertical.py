@@ -44,6 +44,34 @@ from ..utils.model import ModOpt  # NOQA
 __all__ = ["VerticalFL"]
 
 
+class _VFLInferenceModel(torch.nn.Module):
+    """Inference-only wrapper to evaluate VFL with Fluke's evaluator.
+
+    It reconstructs end-to-end predictions from:
+      - client bottom models (feature-wise)
+      - server top model (on concatenated embeddings)
+    """
+
+    def __init__(
+        self,
+        bottom_models: Sequence[torch.nn.Module],
+        top_model: torch.nn.Module,
+        feature_splits: list[np.ndarray],
+    ) -> None:
+        super().__init__()
+        self.bottom_models = torch.nn.ModuleList(bottom_models)
+        self.top_model = top_model
+        self.feature_splits = [torch.as_tensor(fs, dtype=torch.long) for fs in feature_splits]
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        embeddings = []
+        for bottom, feat_idx in zip(self.bottom_models, self.feature_splits):
+            X_client = X.index_select(dim=1, index=feat_idx.to(X.device))
+            embeddings.append(bottom(X_client))
+        concat = torch.cat(embeddings, dim=1)
+        return self.top_model(concat)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 #  VFL Client
 # ──────────────────────────────────────────────────────────────────────────────
@@ -231,7 +259,7 @@ class VFLServer:
     # ── global evaluation using bottom + top models end-to-end ───────────
 
     @torch.no_grad()
-    def evaluate(self, evaluator: Evaluator) -> dict[str, float]:
+    def evaluate(self, evaluator: Evaluator, round: int) -> dict[str, float]:
         """Evaluate end-to-end on the global test set.
 
         For each test batch we run each client's bottom model on its features,
@@ -240,71 +268,19 @@ class VFLServer:
         if self.test_set is None:
             return {}
 
-        self.top_model.eval()
-        for client in self.clients:
-            client.bottom_model.eval()
+        eval_model = _VFLInferenceModel(
+            bottom_models=[client.bottom_model for client in self.clients],
+            top_model=self.top_model,
+            feature_splits=self.feature_splits,
+        )
 
-        all_preds = []
-        all_labels = []
-
-        for batch in self.test_set:
-            X_batch, y_batch = batch
-            X_batch = X_batch.to(self.device)
-
-            # Split features per client
-            embeddings = []
-            for i, client in enumerate(self.clients):
-                feat_idx = self.feature_splits[i]
-                X_client = X_batch[:, feat_idx].to(self.device)
-                client.bottom_model.to(self.device)
-                emb = client.bottom_model(X_client)
-                embeddings.append(emb)
-
-            concat = torch.cat(embeddings, dim=1)
-            logits = self.top_model.to(self.device)(concat)
-            all_preds.append(logits.cpu())
-            all_labels.append(y_batch)
-
-        preds = torch.cat(all_preds, dim=0)
-        labels = torch.cat(all_labels, dim=0)
-
-        # Use evaluator's metrics manually
-        result = {}
-        from torchmetrics import Accuracy, F1Score, Precision, Recall
-
-        num_classes = self.test_set.num_labels
-        task = "binary" if num_classes == 2 else "multiclass"
-        kwargs = {"task": task}
-        if task == "multiclass":
-            kwargs["num_classes"] = num_classes
-
-        # Convert logits to predictions
-        if preds.dim() > 1 and preds.shape[1] > 1:
-            if task == "binary":
-                # For binary with 2-dim output, take softmax then col 1
-                probs = torch.softmax(preds, dim=1)[:, 1]
-            else:
-                probs = preds
-        else:
-            probs = preds.squeeze()
-
-        acc = Accuracy(**kwargs)
-        f1 = F1Score(**kwargs)
-        prec = Precision(**kwargs)
-        rec = Recall(**kwargs)
-
-        result["accuracy"] = acc(probs, labels).item()
-        result["f1_score"] = f1(probs, labels).item()
-        result["precision"] = prec(probs, labels).item()
-        result["recall"] = rec(probs, labels).item()
-        result["loss"] = self.loss_fn(preds, labels).item()
-
-        # Move models back to cpu
-        self.top_model.cpu()
-        for client in self.clients:
-            client.bottom_model.cpu()
-
-        return result
+        return evaluator.evaluate(
+            round=round,
+            model=eval_model,
+            eval_data_loader=self.test_set,
+            loss_fn=self.loss_fn,
+            device=self.device,
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -473,7 +449,7 @@ class VerticalFL:
                 # ── evaluation ────────────────────────────────────────────
                 if FlukeENV().get_eval_cfg().server:
                     evaluator = FlukeENV().get_evaluator()
-                    evals = self.server.evaluate(evaluator)
+                    evals = self.server.evaluate(evaluator, round=rnd + 1)
                     if evals:
                         self._coordinator.notify(
                             event="server_evaluation",
