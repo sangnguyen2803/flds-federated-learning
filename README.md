@@ -1,9 +1,12 @@
 # Federated Learning Labs
-Master MINDS - Foundations, Privacy, and Decentralized Applications
+
+Master MINDS - INSA Lyon
+
+Federated Learning for Distributed Systems: Foundations, Privacy, and Decentralized Applications
+
 Student:
 - Sang NGUYEN
 - Romain PORRIER 
-
 
 
 This folder is the working repository for the labs and experiment tracking.
