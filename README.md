@@ -19,14 +19,13 @@ It contains:
 
 ```text
 fl-lab/
-├── config/                     # Experiment and algorithm YAML files
-├── data/                       # Raw and cached datasets
-├── dataset/                    # Custom dataset loaders
-├── model/                      # Custom tabular + vertical models
-├── runs/                       # CSV logs + plotting notebooks
-├── VFL_IMPLEMENTATION_GUIDE.md # Detailed VFL implementation notes
-├── test_import.py              # VerticalFL import smoke test
-└── test_config.py              # Python API experiment script (fairness eval prototype)
+├── config/                     					# Experiment and algorithm YAML files
+├── data/                       					# Raw and cached datasets
+├── dataset/                    					# Custom dataset loaders
+├── model/                      					# Custom tabular + vertical models
+├── runs/                       					# CSV logs + plotting notebooks
+├── VFL_IMPLEMENTATION_GUIDE.md 					# Detailed VFL implementation notes
+└── fairness_metric_run_iid_mlp.py              	# Python API experiment script (with fairness metrics, used for the MLP IID experiment
 ```
 
 ---
