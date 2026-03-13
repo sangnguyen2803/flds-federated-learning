@@ -18,4 +18,4 @@ hyperparameters:
     output_size: 2
   server:
     weighted: true
-name: fluke.algorithms.fedavg.FedAVG
+name: fluke.algorithms.scaffold.SCAFFOLD
